@@ -8,7 +8,6 @@ This repository preserves only the files relevant to MATLAB users from the origi
 
 - **`matlab_problems/`**: Directory containing the optimization problems converted to MATLAB.
 - **`list_of_matlab_problems`**: A listing of all available problems.
-- **`s2mpj.m`**: Main interface script.
 - **`s2mpjlib.m`**: Supporting library script.
 
 ## Maintenance

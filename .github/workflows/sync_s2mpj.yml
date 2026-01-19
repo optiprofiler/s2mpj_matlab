@@ -1,4 +1,4 @@
-name: Sync S2MPJ Subset
+name: Sync S2MPJ MATLAB Subset
 
 on:
   schedule:
