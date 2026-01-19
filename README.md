@@ -4,11 +4,11 @@ This repository provides a specialized MATLAB-only subset of the [S2MPJ](https:/
 
 ## Contents
 
-This repository preserves only the files relevant to MATLAB users from the original source:
+This repository preserves only the files relevant to MATLAB users from the original source. These files are located in the `src/` directory:
 
-- **`matlab_problems/`**: Directory containing the optimization problems converted to MATLAB.
-- **`list_of_matlab_problems`**: A listing of all available problems.
-- **`s2mpjlib.m`**: Supporting library script.
+- **`src/matlab_problems/`**: Directory containing the optimization problems converted to MATLAB.
+- **`src/list_of_matlab_problems`**: A listing of all available problems.
+- **`src/s2mpjlib.m`**: Supporting library script.
 
 ## Maintenance
 

@@ -1,6 +1,7 @@
 name: Sync S2MPJ MATLAB Subset
 
 on:
+  push:
   schedule:
     # Run once a day at 00:00 UTC to check for updates
     - cron: '0 0 * * *'
@@ -34,35 +35,29 @@ jobs:
           # We purposefully only remove the specific files/folders we are syncing.
           # This allows the user to keep other custom files (like README.md) in the root.
           echo "Cleaning managed files matching upstream subset..."
-          rm -rf matlab_problems list_of_matlab_problems s2mpj.m s2mpjlib.m
+          mkdir -p src
+          rm -rf src/matlab_problems src/list_of_matlab_problems src/s2mpjlib.m
 
           # 3. Copy only the specific files/folders we want from the temporary upstream directory
           echo "Copying selected files..."
           
           # Copy the 'matlab_problems' directory
           if [ -d "temp_upstream/matlab_problems" ]; then
-            cp -r temp_upstream/matlab_problems .
+            cp -r temp_upstream/matlab_problems src/
           else
             echo "::warning::Dir 'matlab_problems' not found in upstream"
           fi
           
           # Copy the 'list_of_matlab_problems' file
           if [ -f "temp_upstream/list_of_matlab_problems" ]; then
-            cp temp_upstream/list_of_matlab_problems .
+            cp temp_upstream/list_of_matlab_problems src/
           else 
             echo "::warning::File 'list_of_matlab_problems' not found in upstream"
           fi
 
-          # Copy the 's2mpj.m' file
-          if [ -f "temp_upstream/s2mpj.m" ]; then
-            cp temp_upstream/s2mpj.m .
-          else
-             echo "::warning::File 's2mpj.m' not found in upstream"
-          fi
-
           # Copy the 's2mpjlib.m' file
           if [ -f "temp_upstream/s2mpjlib.m" ]; then
-            cp temp_upstream/s2mpjlib.m .
+            cp temp_upstream/s2mpjlib.m src/
           else
              echo "::warning::File 's2mpjlib.m' not found in upstream"
           fi
