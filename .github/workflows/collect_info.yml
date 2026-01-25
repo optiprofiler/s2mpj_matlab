@@ -1,0 +1,85 @@
+name: Collect Problem Info
+
+# This workflow collects problem information from the S2MPJ MATLAB problem set.
+# It extracts metrics like dimensions, constraint counts, and function values,
+# then saves the results to probinfo_matlab.csv and probinfo_matlab.mat.
+
+on:
+  # Run after the sync workflow completes to ensure we have the latest problems
+  workflow_run:
+    workflows: ["Sync S2MPJ MATLAB Subset"]
+    types:
+      - completed
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  collect-info:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up MATLAB
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2.1.1
+        with:
+          release: R2024a
+          products: Optimization_Toolbox Parallel_Computing_Toolbox
+
+      # Step 3: Checkout OptiProfiler (contains required class definitions)
+      - name: Checkout OptiProfiler
+        uses: actions/checkout@v4
+        with:
+          repository: optiprofiler/optiprofiler
+          path: optiprofiler
+          submodules: recursive
+          ref: matlab
+
+      # Step 4: Run the info collection script
+      - name: Collect problem information
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            cd optiprofiler
+            setup
+            cd ..
+            addpath('.github/actions/collect_info');
+            s_getInfo
+
+      # Step 4: Configure git for committing
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      # Step 5: Commit and push the updated files if there are changes
+      - name: Commit and push changes
+        run: |
+          git add probinfo_matlab.csv probinfo_matlab.mat feasibility_matlab.txt timeout_problems_matlab.txt log_matlab.txt
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected. The problem info is up to date."
+          else
+            echo "Updates detected. Committing changes..."
+            git commit -m "Auto-update problem info from S2MPJ MATLAB"
+            git push
+          fi
+
+      # Step 6: Upload artifacts for debugging/archival
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: probinfo-files-matlab
+          path: |
+            probinfo_matlab.csv
+            probinfo_matlab.mat
+            feasibility_matlab.txt
+            timeout_problems_matlab.txt
+            log_matlab.txt
