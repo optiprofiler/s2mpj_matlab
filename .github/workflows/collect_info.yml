@@ -79,7 +79,8 @@ jobs:
         with:
           command: |
             cd optiprofiler
-            setup
+            options = struct('install_matcutest', 'false')
+            setup(options)
             cd ..
             s_getInfo
 
