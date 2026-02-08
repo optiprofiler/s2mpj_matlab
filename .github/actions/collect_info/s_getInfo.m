@@ -16,7 +16,7 @@ function s_getInfo()
     problem_names = problem_names{1};
 
     % Exclude some problems
-    problem_exclude = {'SPARCO10LS.m'; 'SPARCO10.m'; 'SPARCO11LS.m'; 'SPARCO11.m'; 'SPARCO12LS.m'; 'SPARCO12.m'; 'SPARCO2LS.m'; 'SPARCO2.m'; 'SPARCO3LS.m'; 'SPARCO3.m'; 'SPARCO5LS.m'; 'SPARCO5.m'; 'SPARCO7LS.m'; 'SPARCO7.m'; 'SPARCO8LS.m'; 'SPARCO8.m'; 'SPARCO9LS.m'; 'SPARCO9.m'; 'ROSSIMP3_mp.m'; 'HS67.m'; 'HS68.m'; 'HS69.m'; 'HS85.m'; 'HS88.m'; 'HS89.m'; 'HS90.m'; 'HS91.m'; 'HS92.m'};
+    problem_exclude = {'SPARCO10LS.m'; 'SPARCO10.m'; 'SPARCO11LS.m'; 'SPARCO11.m'; 'SPARCO12LS.m'; 'SPARCO12.m'; 'SPARCO2LS.m'; 'SPARCO2.m'; 'SPARCO3LS.m'; 'SPARCO3.m'; 'SPARCO5LS.m'; 'SPARCO5.m'; 'SPARCO7LS.m'; 'SPARCO7.m'; 'SPARCO8LS.m'; 'SPARCO8.m'; 'SPARCO9LS.m'; 'SPARCO9.m'; 'ROSSIMP3_mp.m'};
     problem_names = setdiff(problem_names, problem_exclude);
 
     % List all known feasibility problems
@@ -364,16 +364,16 @@ function info_init = get_init_info(problem_name, known_feasibility)
     % f0 and isfeasibility
     try
         info_init{17} = p.fun(p.x0);
-        if strcmp(problem_name, 'LIN')
-            info_init{18} = 0;
-        elseif isempty(info_init{17}) || isnan(info_init{17}) || ismember(problem_name, known_feasibility)
+        % if strcmp(problem_name, 'LIN')
+        %     info_init{18} = 0;
+        if isempty(info_init{17}) || isnan(info_init{17}) || ismember(problem_name, known_feasibility)
             info_init{18} = 1;
         else
             info_init{18} = 0;
         end
-        if strcmp(problem_name, 'LIN')
-            info_init{17} = NaN;
-        elseif isempty(info_init{17}) || isnan(info_init{17}) || (ismember(problem_name, known_feasibility) && ~strcmp(problem_name, 'HS8'))
+        % if strcmp(problem_name, 'LIN')
+        %     info_init{17} = NaN;
+        if isempty(info_init{17}) || isnan(info_init{17}) || (ismember(problem_name, known_feasibility) && ~strcmp(problem_name, 'HS8'))
             info_init{17} = 0;
         end
     catch
