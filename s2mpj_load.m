@@ -388,12 +388,8 @@ function Hx = getHx(problem_name, mcon, nvar, x)
 end
 
 function warn_s2mpj_evaluation_failure(problem_name, what, ME)
-    warn_id = 'S2MPJ:s2mpj_load:EvaluationFailed';
-    warn_state = warning('query', warn_id);
-    warning('on', warn_id);
-    warning(warn_id, ...
-        'Failed to evaluate %s of problem %s: %s', what, problem_name, shorten_exception_message(ME));
-    warning(warn_state.state, warn_id);
+    print_s2mpj_warning(sprintf( ...
+        'Failed to evaluate %s of problem %s: %s', what, problem_name, shorten_exception_message(ME)));
 end
 
 function msg = shorten_exception_message(ME)
@@ -408,6 +404,37 @@ function msg = shorten_exception_message(ME)
     if numel(msg) > max_len
         msg = [msg(1:max_len - 3), '...'];
     end
+end
+
+function print_s2mpj_warning(message)
+    width = 100;
+    prefix = 'WARNING: ';
+    message = strtrim(regexprep(char(message), '\s+', ' '));
+    if isempty(message)
+        return;
+    end
+    body_width = max(20, width - numel(prefix));
+    lines = wrap_s2mpj_text(message, body_width);
+    fprintf('%s%s\n', prefix, lines{1});
+    continuation_prefix = repmat(' ', 1, numel(prefix));
+    for i_line = 2:numel(lines)
+        fprintf('%s%s\n', continuation_prefix, lines{i_line});
+    end
+end
+
+function lines = wrap_s2mpj_text(message, width)
+    lines = {};
+    remaining = message;
+    while numel(remaining) > width
+        chunk = remaining(1:width);
+        break_idx = find(isspace(chunk), 1, 'last');
+        if isempty(break_idx) || break_idx < 1
+            break_idx = width;
+        end
+        lines{end + 1} = strtrim(remaining(1:break_idx)); %#ok<AGROW>
+        remaining = strtrim(remaining(break_idx + 1:end));
+    end
+    lines{end + 1} = remaining;
 end
 
 function [result, problem_name, dim, mcon] = isproblem_parameterized(problem_name)
