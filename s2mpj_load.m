@@ -231,9 +231,10 @@ function problem = s2mpj_load(problem_name, varargin)
     try
         [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
         bx = Jx * x0 - cx;
-    catch
-        Jx = NaN(0, size(x0, 1));
-        bx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the linear constraint Jacobian', ME);
+        Jx = NaN(pb.m, size(x0, 1));
+        bx = NaN(pb.m, 1);
     end
 
     nonlincons = setdiff(1:pb.m, pb.lincons);
@@ -273,14 +274,14 @@ function problem = s2mpj_load(problem_name, varargin)
     % and the nonlinear inequality constraints are:
     %  cub(x) = [c(x)(idx_cle) - cu(idx_cle);
     %           -c(x)(idx_cge) + cl(idx_cge)] <= 0
-    ceq = @(x) getidx(getcx(problem_name, x), idx_ceq) - cu(idx_ceq);
-    cub = @(x) [getidx(getcx(problem_name, x), idx_cle) - cu(idx_cle); -getidx(getcx(problem_name, x), idx_cge) + cl(idx_cge)];
-    hceq = @(x) getidx(getHx(problem_name, x), idx_ceq);
-    hcub = @(x) [getidx(getHx(problem_name, x), idx_cle), getidx(getHx(problem_name, x), idx_cge)];
+    ceq = @(x) getidx(getcx(problem_name, pb.m, x), idx_ceq) - cu(idx_ceq);
+    cub = @(x) [getidx(getcx(problem_name, pb.m, x), idx_cle) - cu(idx_cle); -getidx(getcx(problem_name, pb.m, x), idx_cge) + cl(idx_cge)];
+    hceq = @(x) getidx(getHx(problem_name, pb.m, pb.n, x), idx_ceq);
+    hcub = @(x) [getidx(getHx(problem_name, pb.m, pb.n, x), idx_cle), getidx(getHx(problem_name, pb.m, pb.n, x), idx_cge)];
     
     getidx_mat = @(y, idx) y(idx, :);
-    jceq = @(x) getidx_mat(getJx(problem_name, x), idx_ceq);
-    jcub = @(x) [getidx_mat(getJx(problem_name, x), idx_cle); -getidx_mat(getJx(problem_name, x), idx_cge)];
+    jceq = @(x) getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_ceq);
+    jcub = @(x) [getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_cle); -getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_cge)];
     
     problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
@@ -299,8 +300,9 @@ function fx = getfun(problem_name, is_feasibility, x)
     try
         evalc("fx = funcHandle('fx', x)");
         fx = full(fx);
-    catch
-        fx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the objective function', ME);
+        fx = NaN;
     end
 end
 
@@ -316,8 +318,9 @@ function gx = getgrad(problem_name, is_feasibility, x)
     try
         evalc("[~, gx] = funcHandle('fgx', x)");
         gx = full(gx);
-    catch
-        gx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the gradient of the objective function', ME);
+        gx = NaN(size(x));
     end
 end
 
@@ -325,7 +328,7 @@ function Hx = gethess(problem_name, is_feasibility, x)
 
     if is_feasibility
         % For feasibility problems, we set the Hessian to 0.
-        Hx = zeros(size(x, 1));
+        Hx = zeros(numel(x));
         return;
     end
     
@@ -333,12 +336,13 @@ function Hx = gethess(problem_name, is_feasibility, x)
     try
         evalc("[~, ~, Hx] = funcHandle('fgHx', x)");
         Hx = full(Hx);
-    catch
-        Hx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the Hessian of the objective function', ME);
+        Hx = NaN(numel(x));
     end
 end
 
-function cx = getcx(problem_name, x)
+function cx = getcx(problem_name, mcon, x)
     
     funcHandle = str2func(problem_name);
     try
@@ -348,23 +352,25 @@ function cx = getcx(problem_name, x)
         if size(cx, 1) == 1
             cx = cx';
         end
-    catch
-        cx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the nonlinear constraint function', ME);
+        cx = NaN(mcon, 1);
     end
 end
 
-function Jx = getJx(problem_name, x)
+function Jx = getJx(problem_name, mcon, nvar, x)
     
     funcHandle = str2func(problem_name);
     try
         evalc("[~, Jx] = funcHandle('cJx', x)");
         Jx = full(Jx);
-    catch
-        Jx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the Jacobian of the nonlinear constraint function', ME);
+        Jx = NaN(mcon, nvar);
     end
 end
 
-function Hx = getHx(problem_name, x)
+function Hx = getHx(problem_name, mcon, nvar, x)
     
     funcHandle = str2func(problem_name);
     try
@@ -372,8 +378,35 @@ function Hx = getHx(problem_name, x)
         for i = 1:size(Hx, 2)
             Hx{i} = full(Hx{i});
         end
-    catch
-        Hx = NaN(0, 1);
+    catch ME
+        warn_s2mpj_evaluation_failure(problem_name, 'the Hessian of the nonlinear constraint function', ME);
+        Hx = cell(1, mcon);
+        for i = 1:mcon
+            Hx{i} = NaN(nvar, nvar);
+        end
+    end
+end
+
+function warn_s2mpj_evaluation_failure(problem_name, what, ME)
+    warn_id = 'S2MPJ:s2mpj_load:EvaluationFailed';
+    warn_state = warning('query', warn_id);
+    warning('on', warn_id);
+    warning(warn_id, ...
+        'Failed to evaluate %s of problem %s: %s', what, problem_name, shorten_exception_message(ME));
+    warning(warn_state.state, warn_id);
+end
+
+function msg = shorten_exception_message(ME)
+    msg = strtrim(ME.message);
+    if isempty(msg)
+        msg = strtrim(ME.identifier);
+    elseif ~isempty(ME.identifier)
+        msg = sprintf('%s: %s', ME.identifier, msg);
+    end
+    msg = regexprep(msg, '\s+', ' ');
+    max_len = 180;
+    if numel(msg) > max_len
+        msg = [msg(1:max_len - 3), '...'];
     end
 end
 
