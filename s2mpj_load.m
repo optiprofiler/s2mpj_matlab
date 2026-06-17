@@ -227,14 +227,21 @@ function problem = s2mpj_load(problem_name, varargin)
     end
 
     % The linear constraints are hidden in the cJx method output.
-    % cx = Jx @ x0 - bx
-    try
-        [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
-        bx = Jx * x0 - cx;
-    catch ME
-        warn_s2mpj_evaluation_failure(problem_name, 'the linear constraint Jacobian', ME);
-        Jx = NaN(pb.m, size(x0, 1));
-        bx = NaN(pb.m, 1);
+    % cx = Jx @ x0 - bx. If the problem has no constraints, do not call
+    % S2MPJ's constraint oracle: many unconstrained problems do not assign
+    % those outputs, which is expected and should not produce warnings.
+    if pb.m == 0
+        Jx = zeros(0, numel(x0));
+        bx = zeros(0, 1);
+    else
+        try
+            [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
+            bx = Jx * x0 - cx;
+        catch ME
+            warn_s2mpj_evaluation_failure(problem_name, 'the linear constraint Jacobian', ME);
+            Jx = NaN(pb.m, numel(x0));
+            bx = NaN(pb.m, 1);
+        end
     end
 
     nonlincons = setdiff(1:pb.m, pb.lincons);
@@ -265,7 +272,6 @@ function problem = s2mpj_load(problem_name, varargin)
     bub = [bx(idx_aub_le) + cu(idx_aub_le); -bx(idx_aub_ge) - cl(idx_aub_ge)];
     bub = full(bub);
 
-    getidx = @(y, idx) y(idx);
     % Construct nonlinear constraint functions
     % Remind that in S2MPJ, the constraints are defined as:
     %  cl <= c(x) <= cu
@@ -274,14 +280,13 @@ function problem = s2mpj_load(problem_name, varargin)
     % and the nonlinear inequality constraints are:
     %  cub(x) = [c(x)(idx_cle) - cu(idx_cle);
     %           -c(x)(idx_cge) + cl(idx_cge)] <= 0
-    ceq = @(x) getidx(getcx(problem_name, pb.m, x), idx_ceq) - cu(idx_ceq);
-    cub = @(x) [getidx(getcx(problem_name, pb.m, x), idx_cle) - cu(idx_cle); -getidx(getcx(problem_name, pb.m, x), idx_cge) + cl(idx_cge)];
-    hceq = @(x) getidx(getHx(problem_name, pb.m, pb.n, x), idx_ceq);
-    hcub = @(x) [getidx(getHx(problem_name, pb.m, pb.n, x), idx_cle), getidx(getHx(problem_name, pb.m, pb.n, x), idx_cge)];
+    ceq = @(x) getceq(problem_name, pb.m, x, idx_ceq, cu);
+    cub = @(x) getcub(problem_name, pb.m, x, idx_cle, idx_cge, cu, cl);
+    hceq = @(x) gethceq(problem_name, pb.m, pb.n, x, idx_ceq);
+    hcub = @(x) gethcub(problem_name, pb.m, pb.n, x, idx_cle, idx_cge);
     
-    getidx_mat = @(y, idx) y(idx, :);
-    jceq = @(x) getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_ceq);
-    jcub = @(x) [getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_cle); -getidx_mat(getJx(problem_name, pb.m, pb.n, x), idx_cge)];
+    jceq = @(x) getjceq(problem_name, pb.m, pb.n, x, idx_ceq);
+    jcub = @(x) getjcub(problem_name, pb.m, pb.n, x, idx_cle, idx_cge);
     
     problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
@@ -343,6 +348,11 @@ function Hx = gethess(problem_name, is_feasibility, x)
 end
 
 function cx = getcx(problem_name, mcon, x)
+
+    if mcon == 0
+        cx = NaN(0, 1);
+        return;
+    end
     
     funcHandle = str2func(problem_name);
     try
@@ -359,6 +369,11 @@ function cx = getcx(problem_name, mcon, x)
 end
 
 function Jx = getJx(problem_name, mcon, nvar, x)
+
+    if mcon == 0
+        Jx = NaN(0, nvar);
+        return;
+    end
     
     funcHandle = str2func(problem_name);
     try
@@ -371,6 +386,11 @@ function Jx = getJx(problem_name, mcon, nvar, x)
 end
 
 function Hx = getHx(problem_name, mcon, nvar, x)
+
+    if mcon == 0
+        Hx = cell(0, 1);
+        return;
+    end
     
     funcHandle = str2func(problem_name);
     try
@@ -387,6 +407,60 @@ function Hx = getHx(problem_name, mcon, nvar, x)
     end
 end
 
+function ceqx = getceq(problem_name, mcon, x, idx_ceq, cu)
+    if isempty(idx_ceq)
+        ceqx = NaN(0, 1);
+        return;
+    end
+    cx = getcx(problem_name, mcon, x);
+    ceqx = cx(idx_ceq) - cu(idx_ceq);
+end
+
+function cubx = getcub(problem_name, mcon, x, idx_cle, idx_cge, cu, cl)
+    if isempty(idx_cle) && isempty(idx_cge)
+        cubx = NaN(0, 1);
+        return;
+    end
+    cx = getcx(problem_name, mcon, x);
+    cubx = [cx(idx_cle) - cu(idx_cle); -cx(idx_cge) + cl(idx_cge)];
+end
+
+function jceqx = getjceq(problem_name, mcon, nvar, x, idx_ceq)
+    if isempty(idx_ceq)
+        jceqx = NaN(0, nvar);
+        return;
+    end
+    Jx = getJx(problem_name, mcon, nvar, x);
+    jceqx = Jx(idx_ceq, :);
+end
+
+function jcubx = getjcub(problem_name, mcon, nvar, x, idx_cle, idx_cge)
+    if isempty(idx_cle) && isempty(idx_cge)
+        jcubx = NaN(0, nvar);
+        return;
+    end
+    Jx = getJx(problem_name, mcon, nvar, x);
+    jcubx = [Jx(idx_cle, :); -Jx(idx_cge, :)];
+end
+
+function hceqx = gethceq(problem_name, mcon, nvar, x, idx_ceq)
+    if isempty(idx_ceq)
+        hceqx = cell(0, 1);
+        return;
+    end
+    Hx = getHx(problem_name, mcon, nvar, x);
+    hceqx = Hx(idx_ceq);
+end
+
+function hcubx = gethcub(problem_name, mcon, nvar, x, idx_cle, idx_cge)
+    if isempty(idx_cle) && isempty(idx_cge)
+        hcubx = cell(0, 1);
+        return;
+    end
+    Hx = getHx(problem_name, mcon, nvar, x);
+    hcubx = [Hx(idx_cle), Hx(idx_cge)];
+end
+
 function warn_s2mpj_evaluation_failure(problem_name, what, ME)
     print_s2mpj_warning(sprintf( ...
         'Failed to evaluate %s of problem %s: %s', what, problem_name, shorten_exception_message(ME)));
@@ -399,7 +473,7 @@ function msg = shorten_exception_message(ME)
     elseif ~isempty(ME.identifier)
         msg = sprintf('%s: %s', ME.identifier, msg);
     end
-    msg = regexprep(msg, '\s+', ' ');
+    msg = regexprep(msg, '[\f\n\r\t\v]+', ' ');
     max_len = 180;
     if numel(msg) > max_len
         msg = [msg(1:max_len - 3), '...'];
@@ -407,9 +481,9 @@ function msg = shorten_exception_message(ME)
 end
 
 function print_s2mpj_warning(message)
-    width = 100;
-    prefix = 'WARNING: ';
-    message = strtrim(regexprep(char(message), '\s+', ' '));
+    width = 104;
+    prefix = sprintf('[%-7s] ', 'WARNING');
+    message = strtrim(regexprep(char(message), '[\f\n\r\t\v]+', ' '));
     if isempty(message)
         return;
     end
