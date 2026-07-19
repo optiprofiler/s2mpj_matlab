@@ -10,11 +10,37 @@ This repository preserves only the files relevant to MATLAB users from the origi
 - **`src/list_of_matlab_problems`**: A listing of all available problems.
 - **`src/s2mpjlib.m`**: Supporting library script.
 
+## OptiProfiler Lifecycle
+
+S2MPJ is the bundled default MATLAB problem library in OptiProfiler. Ordinary
+users obtain it through the OptiProfiler MATLAB source or, in the next release,
+the planned MATLAB-only ZIP. They do not need to clone this repository or add
+it to the MATLAB path separately.
+
+Use the public name directly:
+
+```matlab
+options.plibs = {'s2mpj'};
+scores = benchmark(solvers, options);
+```
+
+The bundled provider cannot be registered or removed with
+`registerProblemLibrary` or `unregisterProblemLibrary`. `setup uninstall`
+removes its OptiProfiler-managed MATLAB path together with the core, but does
+not remove benchmark output or other user data.
+
+This repository's synchronization workflow is for OptiProfiler maintenance. A
+new synchronized commit does not update a user's installation automatically;
+the OptiProfiler MATLAB lock and a later core revision select the bundled
+snapshot.
+
 ## Configuration
 
-The file `config.txt` in this directory controls how `s2mpj_select` filters problems (e.g., `variable_size` and `test_feasibility_problems`). See the comments in `config.txt` for a full description of each option.
-
-When used through **OptiProfiler**, these options can also be overridden by OptiProfiler's problem-library configuration layer. Environment-level overrides should be preferred in automated workflows, so the checked-in `config.txt` remains stable.
+The file `config.txt` in this directory controls how `s2mpj_select` filters
+problems (e.g., `variable_size` and `test_feasibility_problems`). See the
+comments in `config.txt` for a full description of each option. The current
+MATLAB adapter reads this file directly; it does not provide a separate
+environment-variable or process-level override layer.
 
 ## Testing
 
