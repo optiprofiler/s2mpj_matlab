@@ -11,12 +11,6 @@ name: Collect Info
 # 8. Upload 'probinfo_matlab.csv', 'probinfo_matlab.mat','probinfo_matlab.txt', 'feasibility_matlab.txt', and 'log_matlab.txt' as artifacts
 
 on:
-  # Run after the sync workflow completes to ensure we have the latest problems
-  workflow_run:
-    workflows: ["Sync S2MPJ MATLAB Subset"]
-    types:
-      - completed
-  # Allow manual triggering from the Actions tab
   workflow_dispatch:
 
 jobs:
@@ -54,7 +48,7 @@ jobs:
           cp -r .github/actions/collect_info/* .
       
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 

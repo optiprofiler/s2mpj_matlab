@@ -1,81 +1,140 @@
-name: Sync S2MPJ MATLAB Subset
+name: Check S2MPJ Upstream
 
 on:
-  push:
   schedule:
-    # Run once a day at 00:00 UTC to check for updates
-    - cron: '0 0 * * *'
+    # 07:25 Beijing time, after the daily pinned-snapshot CI.
+    - cron: "25 23 * * *"
   workflow_dispatch:
-    # Allows manual triggering of the workflow from the GitHub Actions tab
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 jobs:
-  sync-and-filter:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Checkout Local Repository
+      - name: Checkout pinned provider snapshot
         uses: actions/checkout@v4
 
-      - name: Configure Git Identity
-        # Set up the git user to be the GitHub Actions bot for commits
+      - name: Fetch and compare the latest upstream subset
+        id: audit
+        shell: bash
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          set -euo pipefail
+          upstream="$RUNNER_TEMP/S2MPJ"
+          candidate="$RUNNER_TEMP/candidate"
+          report="$RUNNER_TEMP/upstream-update-report.md"
 
-      - name: Sync and Filter Files
-        run: |
-          # 1. Attempt to clone the upstream repository
-          # We check the exit code to ensure the clone was successful before proceeding.
-          echo "Cloning upstream repository..."
-          if ! git clone --depth 1 https://github.com/GrattonToint/S2MPJ.git temp_upstream; then
-            echo "::error::Failed to fetch upstream repository. Aborting sync to prevent data loss."
-            exit 1
+          git clone --depth 1 https://github.com/GrattonToint/S2MPJ.git "$upstream"
+          test -d "$upstream/matlab_problems"
+          test -f "$upstream/list_of_matlab_problems"
+          test -f "$upstream/s2mpjlib.m"
+          mkdir -p "$candidate"
+          cp -R "$upstream/matlab_problems" "$candidate/matlab_problems"
+          cp "$upstream/list_of_matlab_problems" "$candidate/list_of_matlab_problems"
+          cp "$upstream/s2mpjlib.m" "$candidate/s2mpjlib.m"
+
+          upstream_commit="$(git -C "$upstream" rev-parse HEAD)"
+          upstream_subject="$(git -C "$upstream" show -s --format=%s HEAD)"
+          upstream_date="$(git -C "$upstream" show -s --format=%cI HEAD)"
+          {
+            echo "# S2MPJ MATLAB upstream update report"
+            echo
+            echo "- Provider commit: \`${GITHUB_SHA}\`"
+            echo "- Latest upstream commit: \`${upstream_commit}\`"
+            echo "- Latest upstream date: \`${upstream_date}\`"
+            echo "- Latest upstream subject: ${upstream_subject}"
+            echo
+          } > "$report"
+
+          changed=false
+          set +e
+          diff -qr src/matlab_problems "$candidate/matlab_problems" > "$RUNNER_TEMP/tree.diff"
+          diff_status=$?
+          set -e
+          if [ "$diff_status" -gt 1 ]; then
+            echo "::error::Managed-tree comparison failed with status $diff_status"
+            exit "$diff_status"
+          elif [ "$diff_status" = 1 ]; then
+            changed=true
           fi
+          cmp -s src/list_of_matlab_problems "$candidate/list_of_matlab_problems" || changed=true
+          cmp -s src/s2mpjlib.m "$candidate/s2mpjlib.m" || changed=true
 
-          echo "Upstream cloned successfully. Syncing files..."
-
-          # 2. Clean managed files in current workspace for fresh sync
-          # Only remove the specific files/folders we are syncing.
-          mkdir -p src
-          rm -rf src/matlab_problems src/list_of_matlab_problems src/s2mpjlib.m
-
-          # 3. Copy only the specific files/folders we want from the temporary upstream directory
-          echo "Copying selected files..."
-          
-          # Copy the 'matlab_problems' directory
-          if [ -d "temp_upstream/matlab_problems" ]; then
-            cp -r temp_upstream/matlab_problems src/
+          if [ "$changed" = false ]; then
+            echo "No managed-file changes were detected." >> "$report"
           else
-            echo "::warning::Dir 'matlab_problems' not found in upstream"
+            {
+              echo "A candidate update is available. It has not been applied."
+              echo
+              echo '```text'
+              sed -n '1,300p' "$RUNNER_TEMP/tree.diff"
+              difference_count="$(wc -l < "$RUNNER_TEMP/tree.diff" | tr -d ' ')"
+              if [ "$difference_count" -gt 300 ]; then
+                echo "... file comparison truncated after 300 lines."
+              fi
+              cmp -s src/list_of_matlab_problems "$candidate/list_of_matlab_problems" \
+                || echo "Files differ: src/list_of_matlab_problems"
+              cmp -s src/s2mpjlib.m "$candidate/s2mpjlib.m" \
+                || echo "Files differ: src/s2mpjlib.m"
+              echo '```'
+            } >> "$report"
           fi
-          
-          # Copy the 'list_of_matlab_problems' file
-          if [ -f "temp_upstream/list_of_matlab_problems" ]; then
-            cp temp_upstream/list_of_matlab_problems src/
-          else 
-            echo "::warning::File 'list_of_matlab_problems' not found in upstream"
-          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          cp "$report" upstream-update-report.md
 
-          # Copy the 's2mpjlib.m' file
-          if [ -f "temp_upstream/s2mpjlib.m" ]; then
-            cp temp_upstream/s2mpjlib.m src/
-          else
-             echo "::warning::File 's2mpjlib.m' not found in upstream"
-          fi
+      - name: Upload comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: s2mpj-matlab-upstream-report
+          path: upstream-update-report.md
 
-          # 4. Remove the temporary upstream directory
-          rm -rf temp_upstream
+      - name: Create or update the upstream notification
+        uses: actions/github-script@v7
+        env:
+          UPDATE_AVAILABLE: ${{ steps.audit.outputs.changed }}
+        with:
+          script: |
+            const fs = require("fs");
+            const title = "Upstream update available: GrattonToint/S2MPJ";
+            const marker = "<!-- optiprofiler-upstream-update:s2mpj-matlab -->";
+            const report = fs.readFileSync("upstream-update-report.md", "utf8");
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: "open", per_page: 100
+            });
+            const existing = issues.find(
+              issue => !issue.pull_request && issue.title === title && issue.body?.includes(marker)
+            );
 
-          # 5. Commit and push the changes
-          git add src
-          
-          # Check if there are any changes staged for commit
-          if git diff --staged --quiet; then
-            echo "No changes detected. The 'src' folder is up to date."
-          else
-            echo "Updates detected. Committing changes..."
-            git commit -m "Auto-sync subset files from GrattonToint/S2MPJ"
-            git push
-          fi
+            if (process.env.UPDATE_AVAILABLE === "true") {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: "upstream-update" });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner, repo, name: "upstream-update", color: "FBCA04",
+                  description: "A newer upstream snapshot requires maintainer review"
+                });
+              }
+              const body = `${marker}\n${report}\n\nThis workflow is notification-only. Review and promote the snapshot manually.`;
+              if (existing) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, body, labels: ["upstream-update"]
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner, repo, title, body, labels: ["upstream-update"]
+                });
+              }
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: "The pinned provider snapshot now matches the managed upstream files. Closing this notification."
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, state: "closed"
+              });
+            }

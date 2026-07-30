@@ -29,10 +29,10 @@ The bundled provider cannot be registered or removed with
 removes its OptiProfiler-managed MATLAB path together with the core, but does
 not remove benchmark output or other user data.
 
-This repository's synchronization workflow is for OptiProfiler maintenance. A
-new synchronized commit does not update a user's installation automatically;
-the OptiProfiler MATLAB lock and a later core revision select the bundled
-snapshot.
+This repository keeps a reviewed S2MPJ snapshot for OptiProfiler maintenance.
+An automated workflow checks upstream and reports differences, but it never
+changes `src/`, metadata, or the OptiProfiler lock. A later core revision selects
+a new bundled snapshot only after maintainers review and commit the candidate.
 
 ## Configuration
 
@@ -60,9 +60,14 @@ matlab -batch "run('tests/smoke_s2mpj_matlab.m')"
 
 ## Maintenance
 
-This repository is **automatically synchronized** with the upstream `GrattonToint/S2MPJ` repository via GitHub Actions. It checks for updates daily to ensure the problem set remains current.
+`Check S2MPJ Upstream` compares the managed MATLAB subset with the latest
+`GrattonToint/S2MPJ` revision every day. A difference creates or updates an
+`upstream-update` issue and uploads a report. The workflow has no permission to
+push source changes.
 
-The `Collect Info` workflow regenerates `probinfo_matlab.csv` and `probinfo_matlab.mat` for `s2mpj_select`. It runs after upstream synchronization and can also be triggered manually.
+The manual `Collect Info` workflow regenerates `probinfo_matlab.csv` and
+`probinfo_matlab.mat` for review and uploads them as artifacts. It does not
+commit either file automatically.
 
 ## Provenance and Citation
 
