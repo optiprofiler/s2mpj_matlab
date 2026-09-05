@@ -31,6 +31,7 @@ jobs:
           test -d "$upstream/matlab_problems"
           test -f "$upstream/list_of_matlab_problems"
           test -f "$upstream/s2mpjlib.m"
+          test -f "$upstream/LICENCE.txt"
           mkdir -p "$candidate"
           cp -R "$upstream/matlab_problems" "$candidate/matlab_problems"
           cp "$upstream/list_of_matlab_problems" "$candidate/list_of_matlab_problems"
@@ -62,6 +63,7 @@ jobs:
           fi
           cmp -s src/list_of_matlab_problems "$candidate/list_of_matlab_problems" || changed=true
           cmp -s src/s2mpjlib.m "$candidate/s2mpjlib.m" || changed=true
+          cmp -s LICENCE.txt "$upstream/LICENCE.txt" || changed=true
 
           if [ "$changed" = false ]; then
             echo "No managed-file changes were detected." >> "$report"
@@ -79,6 +81,8 @@ jobs:
                 || echo "Files differ: src/list_of_matlab_problems"
               cmp -s src/s2mpjlib.m "$candidate/s2mpjlib.m" \
                 || echo "Files differ: src/s2mpjlib.m"
+              cmp -s LICENCE.txt "$upstream/LICENCE.txt" \
+                || echo "Files differ: LICENCE.txt (license review required)"
               echo '```'
             } >> "$report"
           fi

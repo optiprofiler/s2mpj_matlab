@@ -38,7 +38,12 @@ jobs:
         with:
           release: R2024a
 
+      - name: Check source redistribution notices
+        run: |
+          git archive --format=zip --output="$RUNNER_TEMP/s2mpj-matlab.zip" HEAD
+          python3 tests/check_distribution.py "$RUNNER_TEMP/s2mpj-matlab.zip"
+
       - name: Run adapter smoke and random tests
         uses: matlab-actions/run-command@v2
         with:
-          command: "run('tests/smoke_s2mpj_matlab.m')"
+          command: "run('tests/smoke_s2mpj_matlab.m'); addpath('tests'); test_constraint_hessians"
