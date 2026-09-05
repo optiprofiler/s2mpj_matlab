@@ -458,7 +458,9 @@ function hcubx = gethcub(problem_name, mcon, nvar, x, idx_cle, idx_cge)
         return;
     end
     Hx = getHx(problem_name, mcon, nvar, x);
-    hcubx = [Hx(idx_cle), Hx(idx_cge)];
+    % Lower bounds use cl - c(x), so both derivative orders change sign.
+    lower_Hx = cellfun(@(H) -H, Hx(idx_cge), 'UniformOutput', false);
+    hcubx = [Hx(idx_cle), lower_Hx];
 end
 
 function warn_s2mpj_evaluation_failure(problem_name, what, ME)
