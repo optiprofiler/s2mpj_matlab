@@ -26,9 +26,17 @@ This repository preserves only the files relevant to MATLAB users from the origi
 
 ## Configuration
 
+Selection limits use finite integer lower bounds (`mindim >= 1`, other
+`min* >= 0`). Each of `maxdim`, `maxb`, `maxlcon`, `maxnlcon` and `maxcon`
+accepts an integer at least the corresponding lower bound or positive `Inf`
+for no upper cutoff. NaN and negative infinity are not valid limits.
+`benchmark` validates these inputs; direct `s2mpj_select` callers should
+provide criteria satisfying the same contract.
+
 The file `config.txt` in this directory controls how `s2mpj_select` filters problems (e.g., `variable_size` and `test_feasibility_problems`). See the comments in `config.txt` for a full description of each option.
 
-When used through **OptiProfiler**, these options can also be overridden by OptiProfiler's problem-library configuration layer. Environment-level overrides should be preferred in automated workflows, so the checked-in `config.txt` remains stable.
+This MATLAB adapter reads `config.txt` directly. It does not implement the
+Python environment-variable or process-level configuration override layer.
 
 ## Testing
 

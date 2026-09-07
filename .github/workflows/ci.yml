@@ -40,4 +40,4 @@ jobs:
       - name: Run adapter smoke and random tests
         uses: matlab-actions/run-command@v2
         with:
-          command: "run('tests/smoke_s2mpj_matlab.m')"
+          command: "run('tests/smoke_s2mpj_matlab.m'); addpath('tests'); test_constraint_hessians; test_derivative_products"

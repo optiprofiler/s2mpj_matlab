@@ -42,6 +42,12 @@ function [problem_names, argins] = s2mpj_select(options)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
+%   All lower limits must be finite integers: mindim >= 1 and the other
+%   min* fields >= 0. Each max* field accepts an integer at least its lower
+%   limit or positive Inf (no upper cutoff). NaN and -Inf are not valid
+%   selection limits. OptiProfiler validates these criteria in benchmark;
+%   callers using this selector directly must supply valid criteria.
+%
 %   Three things to note:
 %
 %       1. All the information about the problems can be found in a csv file
