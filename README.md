@@ -1,5 +1,8 @@
 # S2MPJ MATLAB Subset
 
+**V2 candidate:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
+This checkout is not a published release.
+
 This repository provides a specialized MATLAB-only subset of the [S2MPJ](https://github.com/GrattonToint/S2MPJ) collection.
 
 ## Contents
@@ -51,6 +54,35 @@ environment-variable or process-level override layer.
 
 ## Testing
 
+### Native State and Saved Problems
+
+S2MPJ native functions keep shared persistent setup state. The adapter's
+internal `S2mpjOracle` owns each instance's original setup arguments and
+reactivates them when switching between instances, including two dimensions
+of the same named problem. Public `s2mpj_load(name, varargin)` and the returned
+`Problem` class are unchanged. A failed setup invalidates the active entry
+before propagating the error.
+
+Newly saved Problems retain setup arguments, relative native/helper paths,
+and SHA-256 identities, not native persistent state. Restoration uses the
+current trusted provider installation; saved absolute paths are provenance
+only. Missing or changed native/helper sources are rejected. Keep source
+files unchanged while Problems are alive. Java is optional: a MATLAB-only
+SHA-256 implementation supports `-nojvm` sessions.
+
+The active-state cache covers adapter-owned setup. After directly calling a
+raw S2MPJ `setup` function or selectively clearing native functions, explicitly
+reload the affected Problems. Those external mutations are not automatically
+observable. A current-directory source shadow is rejected; path changes are
+checked before rebinding.
+
+Old raw Problem MAT files, saved before this ownership scheme, do not contain
+all original setup arguments. They cannot be automatically repaired by
+guessing defaults or dimension. Reload with the original name and arguments;
+the old callback helper names remain available for compatibility. This
+limitation concerns serialized callable Problems, not saved numerical result
+arrays.
+
 The `CI` workflow runs daily and on pushes. It checks the OptiProfiler adapter layer by:
 
 - selecting a small set of representative `u`, `b`, `l`, and `n` problems;
@@ -59,6 +91,8 @@ The `CI` workflow runs daily and on pushes. It checks the OptiProfiler adapter l
 - checking `variable_size` and `test_feasibility_problems` in `config.txt`;
 - checking nonlinear lower/upper/two-sided constraint Hessians against Jacobian
   differences, including stacking and multiplier order;
+- checking independent setup ownership, failed-setup recovery, source binding,
+  SHA-256 backends, and saved Problem restoration in a fresh MATLAB session;
 - sampling a few additional small problems each day with at most two numerical-library threads.
 
 Locally, from this repository:

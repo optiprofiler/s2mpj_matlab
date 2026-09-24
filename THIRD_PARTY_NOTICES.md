@@ -41,7 +41,7 @@ including license differences; adopting changes always requires review.
 
 ## OptiProfiler additions
 
-`s2mpj_load.m`, `s2mpj_select.m`, configuration, generated
+`s2mpj_load.m`, `s2mpj_select.m`, `S2mpjOracle.m`, `s2mpj_digest.m`, configuration, generated
 `probinfo_matlab.csv` / `probinfo_matlab.mat`, tests and maintenance workflows
 provide the OptiProfiler integration. Generated metadata is derived from the
 wrapped upstream problems; it is not a separately authored problem collection.

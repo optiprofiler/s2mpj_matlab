@@ -143,11 +143,11 @@ function problem = s2mpj_load(problem_name, varargin)
     };
     is_feasibility = ismember(problem_name, feasibility_list);
 
-    % Convert the problem name to a function handle for later use.
-    funcHandle = str2func(problem_name);
-
-    % Get the structure of the problem information.
-    pb = funcHandle('setup', varargin{:});
+    % Bind source identity and original arguments without serializing native
+    % persistent state. Each callback activates its own setup configuration.
+    oracle = S2mpjOracle(problem_name, varargin);
+    funcHandle = @(varargin) oracle.call(varargin{:});
+    pb = oracle.setup();
     % problem_name = pb.name;
 
     if nargin < 2
@@ -157,13 +157,13 @@ function problem = s2mpj_load(problem_name, varargin)
     end
 
     % Get the objective function.
-    fun = @(x) getfun(problem_name, is_feasibility, x);
+    fun = @(x) oracle.objective(x, 0, is_feasibility);
 
     % Get the gradient of the objective function.
-    grad = @(x) getgrad(problem_name, is_feasibility, x);
+    grad = @(x) oracle.objective(x, 1, is_feasibility);
 
     % Get the Hessian of the objective function.
-    hess = @(x) gethess(problem_name, is_feasibility, x);
+    hess = @(x) oracle.objective(x, 2, is_feasibility);
 
     % Get the initial guess, lower bound, and upper bound.
     x0 = pb.x0;
@@ -280,18 +280,25 @@ function problem = s2mpj_load(problem_name, varargin)
     % and the nonlinear inequality constraints are:
     %  cub(x) = [c(x)(idx_cle) - cu(idx_cle);
     %           -c(x)(idx_cge) + cl(idx_cge)] <= 0
-    ceq = @(x) getceq(problem_name, pb.m, x, idx_ceq, cu);
-    cub = @(x) getcub(problem_name, pb.m, x, idx_cle, idx_cge, cu, cl);
-    hceq = @(x) gethceq(problem_name, pb.m, pb.n, x, idx_ceq);
-    hcub = @(x) gethcub(problem_name, pb.m, pb.n, x, idx_cle, idx_cge);
-    
-    jceq = @(x) getjceq(problem_name, pb.m, pb.n, x, idx_ceq);
-    jcub = @(x) getjcub(problem_name, pb.m, pb.n, x, idx_cle, idx_cge);
+    ineq_indices = [idx_cle(:); idx_cge(:)];
+    ineq_signs = [ones(numel(idx_cle),1); -ones(numel(idx_cge),1)];
+    ineq_offsets = [-cu(idx_cle); cl(idx_cge)];
+    eq_signs = ones(numel(idx_ceq),1);
+    eq_offsets = -cu(idx_ceq);
+    ceq = @(x) oracle.constraints(x, idx_ceq, eq_signs, eq_offsets, 0);
+    cub = @(x) oracle.constraints(x, ineq_indices, ineq_signs, ineq_offsets, 0);
+    hceq = @(x) oracle.constraints(x, idx_ceq, eq_signs, eq_offsets, 2);
+    hcub = @(x) oracle.constraints(x, ineq_indices, ineq_signs, ineq_offsets, 2);
+    jceq = @(x) oracle.constraints(x, idx_ceq, eq_signs, eq_offsets, 1);
+    jcub = @(x) oracle.constraints(x, ineq_indices, ineq_signs, ineq_offsets, 1);
     
     problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
 end
 
+% Preserve these local names/signatures for anonymous callbacks saved by the
+% pre-oracle loader. Such objects do not contain enough setup information to
+% restore native state automatically; rebuild them with the original arguments.
 function fx = getfun(problem_name, is_feasibility, x)
     
     if is_feasibility && ~strcmp(problem_name, 'HS8')
