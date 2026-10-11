@@ -39,6 +39,20 @@ a new bundled snapshot only after maintainers review and commit the candidate.
 
 ## Configuration
 
+This adapter exposes continuous-variable problems only. Selection requires
+real-variable metadata (`xtype` contains only `r`), and loading independently
+checks the native setup declaration before constructing a `Problem`.
+Integer, binary and mixed-variable models are not fixed, rounded or relaxed.
+An explicit unsupported domain raises `S2MPJ:NoncontinuousVariables`.
+
+In particular, `NOZZLEfp` declares `rrrrb`: its fifth coordinate is a binary
+jet-pattern choice, not a free real variable. It is excluded for every oracle
+level and configuration mode. The older metadata incorrectly labeled it `r`
+and also lacked its native nonlinear-constraint information; its retained row
+is historical, not a usable continuous problem. The collector now admits only
+successfully validated continuous wrappers. No upstream problem formula was
+changed.
+
 Selection limits use finite integer lower bounds (`mindim >= 1`, other
 `min* >= 0`). Each of `maxdim`, `maxb`, `maxlcon`, `maxnlcon` and `maxcon`
 accepts an integer at least the corresponding lower bound or positive `Inf`
@@ -89,6 +103,8 @@ The `CI` workflow runs daily and on pushes. It checks the OptiProfiler adapter l
 - loading each selected problem through `s2mpj_load`;
 - evaluating `fun`, `cub`, and `ceq` at the initial point;
 - checking `variable_size` and `test_feasibility_problems` in `config.txt`;
+- rejecting integer/binary models before evaluation and filtering variable
+  domains across every configuration mode and oracle level;
 - checking nonlinear lower/upper/two-sided constraint Hessians against Jacobian
   differences, including stacking and multiplier order;
 - checking independent setup ownership, failed-setup recovery, source binding,

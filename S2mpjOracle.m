@@ -68,6 +68,22 @@ classdef S2mpjOracle < handle
                     || any([pb.n,pb.m] ~= fix([pb.n,pb.m])) || numel(pb.x0) ~= pb.n
                 error('S2MPJ:SetupMetadata', 'Invalid setup metadata for %s.', oracle.Name);
             end
+            % Native S2MPJ omits xtype for real-only models. An explicit
+            % declaration must not be lost when constructing a Problem.
+            if isfield(pb, 'xtype')
+                types = pb.xtype;
+                if isstring(types) && isscalar(types), types = char(types); end
+                if ~ischar(types) || ~isvector(types) || numel(types) ~= pb.n ...
+                        || any(~ismember(types(:), 'rib'))
+                    error('S2MPJ:SetupMetadata', 'Invalid xtype metadata for %s.', oracle.Name);
+                end
+                if any(types(:) ~= 'r')
+                    error('S2MPJ:NoncontinuousVariables', ...
+                        ['%s declares integer or binary variables (xtype=%s). ' ...
+                         'This adapter supports continuous problems only; ' ...
+                         'no fixing, rounding or relaxation is applied.'], oracle.Name, types(:)');
+                end
+            end
             if ~isempty(oracle.Shape) && ~isequal([pb.n,pb.m],oracle.Shape)
                 error('S2MPJ:SetupMetadata', 'Dimensions changed when restoring %s.',oracle.Name);
             end

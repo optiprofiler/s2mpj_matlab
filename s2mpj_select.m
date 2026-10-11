@@ -47,6 +47,9 @@ function [problem_names, argins] = s2mpj_select(options)
 %   limit or positive Inf (no upper cutoff). NaN and -Inf are not valid
 %   selection limits. OptiProfiler validates these criteria in benchmark;
 %   callers using this selector directly must supply valid criteria.
+%   Only continuous-variable problems are selected. The metadata xtype must
+%   contain only 'r'; integer, binary, mixed or unknown domains are excluded.
+%   S2MPJ_LOAD independently validates the native setup declaration.
 %
 %   Three things to note:
 %
@@ -172,6 +175,10 @@ function [problem_names, argins] = s2mpj_select(options)
     load(path_matfile, 'probinfo');
 
     for i_problem = 2:size(probinfo, 1)
+        xtype = probinfo{i_problem, 3};
+        if ~ischar(xtype) || isempty(xtype) || any(xtype(:) ~= 'r')
+            continue;
+        end
         problem_name = probinfo{i_problem, 1};
         ptype = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
@@ -186,13 +193,6 @@ function [problem_names, argins] = s2mpj_select(options)
         mlcons = probinfo{i_problem, 31};
         mnlcons = probinfo{i_problem, 32};
         mcons = probinfo{i_problem, 30};
-
-        % If the oracle is not 0, then we exclude problem 'NOZZLEfp' since it does not have first- or second-order information.
-        % "NOZZLEfp" is designed to simulate jet impingement cooling.
-        % See https://optimization-online.org/wp-content/uploads/2024/03/Design_Optimization_Of_A_Jet_Plate_for_Impingement_Cooling-1.pdf
-        if options.oracle ~= 0
-            options.excludelist = [options.excludelist, 'NOZZLEfp'];
-        end
 
         % Check if the problem is in the exclude list.
         if ~isempty(options.excludelist) && ismember(problem_name, options.excludelist)

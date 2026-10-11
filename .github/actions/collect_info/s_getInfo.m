@@ -263,12 +263,10 @@ function info_init = get_init_info(problem_name, known_feasibility)
         info_init{2} = 'unknown';
     end
 
-    try
-        info_init{3} = p.xtype;
-    catch
-        % All problems in S2MPJ are real-valued problems (if we remember correctly).
-        info_init{3} = 'r';
-    end
+    % A successful load has already checked the native variable domain.
+    % Problem has no xtype property; do not infer missing domains from it.
+    % Noncontinuous models fail loading and are recorded by the caller.
+    info_init{3} = 'r';
 
     % dim
     try

@@ -50,6 +50,10 @@ function problem = s2mpj_load(problem_name, varargin)
 %       pb.xupper: upper bound.
 %       pb.xtype: type of variables
 %                 ('r' (real), 'i' (integer), or 'b' (binary)).
+%   Only continuous-variable models are supported. An explicit integer or
+%   binary xtype raises S2MPJ:NoncontinuousVariables before any evaluation.
+%   No variable is fixed, rounded or relaxed. Missing xtype follows the
+%   upstream real-variable default; malformed declarations are rejected.
 %
 %   The objective function will be evaluated by 'fx' action.
 %       fx = problem_name('fx', x);
