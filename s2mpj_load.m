@@ -55,6 +55,13 @@ function problem = s2mpj_load(problem_name, varargin)
 %   No variable is fixed, rounded or relaxed. Missing xtype follows the
 %   upstream real-variable default; malformed declarations are rejected.
 %
+%   Invalid native metadata fails closed. A wrong shape, a NaN entry or an
+%   impossible bound raises S2MPJ:InvalidMetadata, and a linear constraint
+%   whose values or Jacobian cannot be read at x0 raises
+%   S2MPJ:LinearConstraintFailure with the original cause. No constraint is
+%   dropped and no NaN matrix is built. Problems without linear constraints
+%   need no Jacobian at load time.
+%
 %   The objective function will be evaluated by 'fx' action.
 %       fx = problem_name('fx', x);
 %   The general constraints and Jacobians will be evaluated by 'cJx' action.
@@ -169,54 +176,38 @@ function problem = s2mpj_load(problem_name, varargin)
     % Get the Hessian of the objective function.
     hess = @(x) oracle.objective(x, 2, is_feasibility);
 
-    % Get the initial guess, lower bound, and upper bound.
-    x0 = pb.x0;
-    x0 = full(x0);
-    xl = pb.xlower;
-    xl = full(xl);
-    xu = pb.xupper;
-    xu = full(xu);
-    % Replace 1.0e+20 (which represents infinity) bounds with np.inf.
+    % Validate native metadata before building masks: a mask built on NaN
+    % would silently drop the corresponding bound or constraint.
+    x0 = native_vector(problem_name, 'initial point', pb.x0, pb.n);
+    xl = native_vector(problem_name, 'variable lower bounds', pb.xlower, pb.n);
+    xu = native_vector(problem_name, 'variable upper bounds', pb.xupper, pb.n);
+    if any(xl == Inf) || any(xu == -Inf)
+        error('S2MPJ:InvalidMetadata', 'Impossible variable bounds for S2MPJ problem %s.', problem_name);
+    end
+    % Replace 1.0e+20 (which represents infinity) bounds with Inf.
     xl(xl <= -1.0e+20) = -Inf;
     xu(xu >= 1.0e+20) = Inf;
 
-    try
-        cl = pb.clower;
-        cl = full(cl);
-        % Check if cl is a row vector, if yes, transpose it to a column vector.
-        if size(cl, 1) == 1
-            cl = cl';
+    if pb.m > 0
+        if ~isfield(pb, 'clower') || ~isfield(pb, 'cupper')
+            error('S2MPJ:InvalidMetadata', ...
+                'Invalid constraint bounds for S2MPJ problem %s: it declares %d constraints without clower and cupper.', ...
+                problem_name, pb.m);
         end
-    catch
-        cl = NaN(0, 1);
-    end
-    try
-        cu = pb.cupper;
-        cu = full(cu);
-        % Check if cu is a row vector, if yes, transpose it to a column vector.
-        if size(cu, 1) == 1
-            cu = cu';
-        end
-    catch
-        cu = NaN(0, 1);
-    end
-    if ~isempty(cl)
-        cl(cl <= -1.0e+20) = -Inf;
-    end
-    if ~isempty(cu)
-        cu(cu >= 1.0e+20) = Inf;
-    end
-    if ~isempty(cl)
-        idx_cl_finite = find(isfinite(cl));
+        cl = native_vector(problem_name, 'constraint lower bounds', pb.clower, pb.m);
+        cu = native_vector(problem_name, 'constraint upper bounds', pb.cupper, pb.m);
     else
-        idx_cl_finite = [];
+        cl = zeros(0, 1);
+        cu = zeros(0, 1);
     end
-    if ~isempty(cu)
-        idx_cu_finite = find(isfinite(cu));
-    else
-        idx_cu_finite = [];
+    if any(cl == Inf) || any(cu == -Inf)
+        error('S2MPJ:InvalidMetadata', 'Impossible constraint bounds for S2MPJ problem %s.', problem_name);
     end
-    
+    cl(cl <= -1.0e+20) = -Inf;
+    cu(cu >= 1.0e+20) = Inf;
+    idx_cl_finite = find(isfinite(cl));
+    idx_cu_finite = find(isfinite(cu));
+
     if ~isfield(pb, 'lincons')
         pb.lincons = [];
     end
@@ -230,22 +221,11 @@ function problem = s2mpj_load(problem_name, varargin)
         pb.nge = 0;
     end
 
-    % The linear constraints are hidden in the cJx method output.
-    % cx = Jx @ x0 - bx. If the problem has no constraints, do not call
-    % S2MPJ's constraint oracle: many unconstrained problems do not assign
-    % those outputs, which is expected and should not produce warnings.
-    if pb.m == 0
-        Jx = zeros(0, numel(x0));
-        bx = zeros(0, 1);
-    else
-        try
-            [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
-            bx = Jx * x0 - cx;
-        catch ME
-            warn_s2mpj_evaluation_failure(problem_name, 'the linear constraint Jacobian', ME);
-            Jx = NaN(pb.m, numel(x0));
-            bx = NaN(pb.m, 1);
-        end
+    idx_native_eq = pb.nle + 1 : pb.nle + pb.neq;
+    if any(idx_native_eq > pb.m) || any(cl(idx_native_eq) ~= cu(idx_native_eq)) ...
+            || ~all(isfinite(cl(idx_native_eq)))
+        error('S2MPJ:InvalidMetadata', ...
+            'Invalid equality constraints for S2MPJ problem %s: each needs equal finite bounds.', problem_name);
     end
 
     nonlincons = setdiff(1:pb.m, pb.lincons);
@@ -259,6 +239,32 @@ function problem = s2mpj_load(problem_name, varargin)
     idx_cle = intersect(idx_le, nonlincons);
     idx_ceq = intersect(idx_eq, nonlincons);
     idx_cge = intersect(idx_ge, nonlincons);
+
+    % The linear constraints are hidden in the cJx method output,
+    % cx = Jx @ x - bx. Read them only when needed: many models do not assign
+    % those outputs. Fail closed, because NaN matrices would describe a less
+    % constrained problem and a dropped row would be silently feasible.
+    idx_linear = union(idx_aeq, union(idx_aub_le, idx_aub_ge));
+    Jx = sparse(pb.m, numel(x0));
+    bx = zeros(pb.m, 1);
+    if ~isempty(idx_linear)
+        try
+            [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
+            if numel(cx) ~= pb.m || ~isequal(size(Jx), [pb.m, numel(x0)])
+                error('S2MPJ:InvalidMetadata', 'Unexpected native constraint/Jacobian shape.');
+            end
+            cx = cx(:);
+            bx = full(Jx * x0 - cx);
+            if ~all(isfinite(cx(idx_linear))) || ~all(isfinite(nonzeros(Jx(idx_linear, :)))) ...
+                    || ~all(isfinite(bx(idx_linear)))
+                error('S2MPJ:InvalidMetadata', 'Non-finite linear constraint data.');
+            end
+        catch cause
+            failure = MException('S2MPJ:LinearConstraintFailure', ...
+                'Failed to load linear constraints for S2MPJ problem %s.', problem_name);
+            throw(addCause(failure, cause));
+        end
+    end
 
     % Note that in S2MPJ, the constraints are defined as:
     %  cl <= c(x) <= cu
@@ -298,6 +304,26 @@ function problem = s2mpj_load(problem_name, varargin)
     
     problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
+end
+
+function vector = native_vector(problem_name, label, values, expected)
+    % Return native metadata as a column, rejecting a wrong shape or NaN.
+    if ~isnumeric(values) && ~islogical(values)
+        error('S2MPJ:InvalidMetadata', ...
+            'Invalid %s for S2MPJ problem %s: the values are not numeric.', label, problem_name);
+    end
+    vector = full(double(values));
+    if numel(vector) ~= expected || ~isvector(vector)
+        error('S2MPJ:InvalidMetadata', ...
+            'Invalid %s for S2MPJ problem %s: expected %d entries, found size [%s].', ...
+            label, problem_name, expected, num2str(size(vector)));
+    end
+    if any(isnan(vector))
+        error('S2MPJ:InvalidMetadata', ...
+            ['Invalid %s for S2MPJ problem %s: NaN entries leave a bound undefined, ' ...
+             'and it must not silently disappear.'], label, problem_name);
+    end
+    vector = vector(:);
 end
 
 % Preserve these local names/signatures for anonymous callbacks saved by the

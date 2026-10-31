@@ -167,7 +167,10 @@ function [problem_names, argins] = s2mpj_select(options)
     % Add some problems to excludelist. These problems have bugs or are not suitable for benchmarking.
     % 'DANWOODLS' and 'MISRA1CLS' have bugs at this moment (bugs in SIF files where bound constraints are not defined).
     % 'ROSSIMP1', 'ROSSIMP2', and 'ROSSIMP3' are duplicated with 'ROSENBR'.
-    options.excludelist = unique([options.excludelist, {'DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3'}]);
+    % The native HS67 setup overwrites its upper bounds (7 of its 14 constraints
+    % would vanish) and ROSSIMP1NE declares constraints without bounds. S2MPJ_LOAD
+    % rejects both, so they must not be offered as selectable problems.
+    options.excludelist = unique([options.excludelist, {'DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3', 'HS67', 'ROSSIMP1NE'}]);
 
     % Load the data from a .mat file.
     % Remember to use the absolute path. (Or MATLAB will look for the file following the order of the folders in the path, which may lead to unexpected results.)
