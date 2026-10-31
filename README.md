@@ -120,11 +120,8 @@ The `CI` workflow runs daily and on pushes. It checks the OptiProfiler adapter l
 - loading each selected problem through `s2mpj_load`;
 - evaluating `fun`, `cub`, and `ceq` at the initial point;
 - checking `variable_size` and `test_feasibility_problems` in `config.txt`;
-- rejecting integer/binary models before evaluation and filtering variable
-  domains across every configuration mode and oracle level;
 - checking nonlinear lower/upper/two-sided constraint Hessians against Jacobian
   differences, including stacking and multiplier order;
-- rejecting invalid native metadata and failed linear probes through the loader;
 - checking independent setup ownership, failed-setup recovery, source binding,
   SHA-256 backends, and saved Problem restoration in a fresh MATLAB session;
 - sampling a few additional small problems each day with at most two numerical-library threads.
@@ -133,6 +130,16 @@ Locally, from this repository:
 
 ```bash
 matlab -batch "run('tests/smoke_s2mpj_matlab.m'); addpath('tests'); test_constraint_hessians"
+```
+
+Four more tests are run by hand, with the OptiProfiler 2.0 core available. They
+reject integer/binary models before evaluation and filter variable domains across
+every configuration mode and oracle level, reject invalid native metadata and
+failed linear probes through the loader, keep the default instance in
+`variable_size='all'`, and check the OptiProfiler 2.0 contract:
+
+```bash
+matlab -batch "run('tests/smoke_s2mpj_matlab.m'); clear cleanup_config; addpath('tests'); test_continuous_domain; test_native_metadata; test_variable_size_all; test_v2_contract"
 ```
 
 ## Maintenance
