@@ -1,7 +1,6 @@
 # S2MPJ MATLAB Subset
 
-**V2 candidate:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
-This checkout is not a published release.
+**OptiProfiler 2.0:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
 
 This repository provides a specialized MATLAB-only subset of the [S2MPJ](https://github.com/GrattonToint/S2MPJ) collection.
 
@@ -52,6 +51,21 @@ and also lacked its native nonlinear-constraint information; its retained row
 is historical, not a usable continuous problem. The collector now admits only
 successfully validated continuous wrappers. No upstream problem formula was
 changed.
+
+Invalid native metadata fails closed. A wrong shape, NaN entry or impossible
+bound raises `S2MPJ:InvalidMetadata` instead of dropping the affected constraint.
+A linear constraint whose values or Jacobian cannot be read at `x0` raises
+`S2MPJ:LinearConstraintFailure` with the original cause. Problems without linear
+constraints need no Jacobian at load time. No upstream problem file is edited.
+
+Two shipped models fail this validation, so selection no longer offers them. The
+native `HS67.m` overwrites its upper bounds in line 395 (`pb.cupper(1:pb.nge)`),
+which left only 7 of its 14 constraints; the Python translation has all 14.
+`ROSSIMP1NE.m` declares two equality constraints without `clower` and `cupper`,
+which turned it into an unconstrained problem with a zero objective.
+
+With `variable_size='all'`, the default instance is returned together with the
+other sizes whenever it satisfies the criteria.
 
 Selection limits use finite integer lower bounds (`mindim >= 1`, other
 `min* >= 0`). Each of `maxdim`, `maxb`, `maxlcon`, `maxnlcon` and `maxcon`
@@ -107,6 +121,7 @@ The `CI` workflow runs daily and on pushes. It checks the OptiProfiler adapter l
   domains across every configuration mode and oracle level;
 - checking nonlinear lower/upper/two-sided constraint Hessians against Jacobian
   differences, including stacking and multiplier order;
+- rejecting invalid native metadata and failed linear probes through the loader;
 - checking independent setup ownership, failed-setup recovery, source binding,
   SHA-256 backends, and saved Problem restoration in a fresh MATLAB session;
 - sampling a few additional small problems each day with at most two numerical-library threads.

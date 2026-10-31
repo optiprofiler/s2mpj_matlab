@@ -1,6 +1,6 @@
 function test_v2_contract()
 %TEST_V2_CONTRACT checks the public V2 carrier and core-owned recording.
-% Run only with the installed core candidate and required native runtime.
+% Run only with core 2.0 and the required native runtime.
     for spec = {'plain', 'noisy+permuted'}
         problem = s2mpj_load('ROSENBR');
         assert(strcmp(class(problem), 'Problem'));
