@@ -29,6 +29,15 @@ function test_state_ownership()
         assert(a.fun(a.x0) == 6);
     end
 
+    % Native setup fills persistent data by index, so an earlier, larger instance
+    % must not leave entries behind (real case: ZAMB2 changed its objective value).
+    large = s2mpj_load('STALESTATE', 3);
+    assert(large.fun(large.x0) == 6);
+    small = s2mpj_load('STALESTATE', 2);
+    assert(small.fun(small.x0) == 3);
+    assert(large.fun(large.x0) == 6);
+    assert(small.fun(small.x0) == 3);
+
     for name = {'ROSENBR', 'HS13', 'HS68', 'HELIX'}
         p = s2mpj_load(name{1});
         before = snapshot(p);

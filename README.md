@@ -87,9 +87,11 @@ environment-variable or process-level override layer.
 S2MPJ native functions keep shared persistent setup state. The adapter's
 internal `S2mpjOracle` owns each instance's original setup arguments and
 reactivates them when switching between instances, including two dimensions
-of the same named problem. Public `s2mpj_load(name, varargin)` and the returned
-`Problem` class are unchanged. A failed setup invalidates the active entry
-before propagating the error.
+of the same named problem. Native setup fills that state entry by entry, so the
+oracle clears the native function first: otherwise values of another size
+survive, and an objective depends on what was loaded before. Public
+`s2mpj_load(name, varargin)` and the returned `Problem` class are unchanged. A
+failed setup invalidates the active entry before propagating the error.
 
 Newly saved Problems retain setup arguments, relative native/helper paths,
 and SHA-256 identities, not native persistent state. Restoration uses the

@@ -61,6 +61,10 @@ classdef S2mpjOracle < handle
             % old active entry while setup or metadata validation is running.
             active_state('invalidate', oracle.Files{1}, []);
             oracle.bind();
+            % Native setup fills a persistent structure entry by entry, so data
+            % of another instance of this problem would survive into this one.
+            % Clearing the native function is what resets that structure.
+            clear(oracle.Name);
             pb = oracle.Native('setup', oracle.Arguments{:});
             if ~isstruct(pb) || ~all(isfield(pb, {'n','m','x0','xlower','xupper'})) ...
                     || ~isscalar(pb.n) || ~isscalar(pb.m) ...
