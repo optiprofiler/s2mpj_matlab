@@ -267,8 +267,12 @@ function [problem_names, argins] = s2mpj_select(options)
                     continue;
                 end
             elseif strcmp(variable_size, 'all')
-                % Include all configurations that satisfy the options.
-                % Do nothing, we will process all idxs.
+                % Include all configurations that satisfy the options, and the
+                % default one when it does (the mask above excludes it).
+                if default_satisfy
+                    problem_names{end + 1} = problem_name;
+                    argins{end + 1} = {};
+                end
             end
             for k = 1:numel(idxs)
                 idx = idxs(k);
