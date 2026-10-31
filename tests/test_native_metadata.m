@@ -16,7 +16,9 @@ function test_native_metadata()
     for scenario = {'nan-cupper', 'nan-clower', 'nan-xlower', 'nan-xupper', 'nan-x0', ...
             'short-cupper', 'matrix-cupper', 'text-cupper', 'missing-cupper', ...
             'impossible-xlower', 'impossible-xupper', 'impossible-clower', ...
-            'impossible-cupper', 'unequal-equality', 'free-equality', 'equality-out-of-range'}
+            'impossible-cupper', 'sentinel-xlower', 'sentinel-cupper', ...
+            'crossed-variable-bounds', 'crossed-constraint-bounds', ...
+            'unequal-equality', 'free-equality', 'equality-out-of-range'}
         assert_error(scenario{1}, 'S2MPJ:InvalidMetadata');
     end
     for scenario = {'jacobian-error', 'jacobian-nan', 'jacobian-shape', 'value-nan'}
@@ -46,9 +48,24 @@ function test_native_metadata()
     assert_shipped('HS67', 'S2MPJ:InvalidMetadata');
     % ROSSIMP1NE: two equality constraints without clower and cupper.
     assert_shipped('ROSSIMP1NE', 'S2MPJ:InvalidMetadata');
+    % Include feasibility problems: ROSSIMP1NE is one, so the default hides it anyway.
+    temporary = tempname;
+    mkdir(temporary);
+    cleanup_files = onCleanup(@() rmdir(temporary, 's')); %#ok<NASGU>
+    copyfile(fullfile(root, 's2mpj_select.m'), temporary);
+    copyfile(fullfile(root, 'probinfo_matlab.mat'), temporary);
+    fid = fopen(fullfile(temporary, 'config.txt'), 'w');
+    assert(fid >= 0);
+    fprintf(fid, 'variable_size=default\ntest_feasibility_problems=2\n');
+    fclose(fid);
+    original_folder = cd(temporary);
+    cleanup_folder = onCleanup(@() cd(original_folder)); %#ok<NASGU>
+    clear s2mpj_select
+    assert(startsWith(which('s2mpj_select'), pwd), 'The temporary selector is not in use.');
     names = s2mpj_select(struct('ptype', 'ubln', 'mindim', 1, 'maxdim', 10, 'maxb', 20, ...
         'maxlcon', 20, 'maxnlcon', 20, 'maxcon', 20));
-    assert(~any(ismember({'HS67', 'ROSSIMP1NE'}, names)));
+    assert(ismember('HS21', names) && ~any(ismember({'HS67', 'ROSSIMP1NE'}, names)));
+    clear s2mpj_select
     disp('S2MPJ native metadata: PASS');
 end
 

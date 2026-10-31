@@ -22,6 +22,10 @@ function varargout = NATIVEMETADATA(action, varargin)
             case 'impossible-xupper', pb.xupper = [-Inf;1e20];
             case 'impossible-clower', pb.clower = [Inf;0];
             case 'impossible-cupper', pb.cupper = [-Inf;0];
+            case 'sentinel-xlower', pb.xlower = [1e20;-1e20];
+            case 'sentinel-cupper', pb.cupper = [-1e20;0];
+            case 'crossed-variable-bounds', pb.xlower = [2;-1e20]; pb.xupper = [1;1e20];
+            case 'crossed-constraint-bounds', pb.clower = [4;0];
             case 'unequal-equality', pb.cupper = [3;1];
             case 'free-equality', pb.clower = [-1e20;-1e20];
             case 'equality-out-of-range', pb.nle = 2;

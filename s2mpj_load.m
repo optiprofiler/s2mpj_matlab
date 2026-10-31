@@ -56,7 +56,8 @@ function problem = s2mpj_load(problem_name, varargin)
 %   upstream real-variable default; malformed declarations are rejected.
 %
 %   Invalid native metadata fails closed. A wrong shape, a NaN entry or an
-%   impossible bound raises S2MPJ:InvalidMetadata, and a linear constraint
+%   impossible or crossed bound raises S2MPJ:InvalidMetadata (or
+%   S2MPJ:SetupMetadata, when the setup output is unusable), and a linear constraint
 %   whose values or Jacobian cannot be read at x0 raises
 %   S2MPJ:LinearConstraintFailure with the original cause. No constraint is
 %   dropped and no NaN matrix is built. Problems without linear constraints
@@ -123,7 +124,8 @@ function problem = s2mpj_load(problem_name, varargin)
     [is_problem_parameterized, problem_name, dim, mcon] = isproblem_parameterized(problem_name);
 
     if is_problem_parameterized
-        load('probinfo_matlab.mat', 'probinfo');
+        % Use the absolute path: other libraries ship a file with the same name.
+        load(fullfile(fileparts(mfilename('fullpath')), 'probinfo_matlab.mat'), 'probinfo');
         idx_pb = find(strcmp(probinfo(:, 1), problem_name), 1, 'first');
         if isempty(idx_pb)
             error('Problem %s not found in probinfo_matlab.mat.', problem_name);
@@ -181,7 +183,7 @@ function problem = s2mpj_load(problem_name, varargin)
     x0 = native_vector(problem_name, 'initial point', pb.x0, pb.n);
     xl = native_vector(problem_name, 'variable lower bounds', pb.xlower, pb.n);
     xu = native_vector(problem_name, 'variable upper bounds', pb.xupper, pb.n);
-    if any(xl == Inf) || any(xu == -Inf)
+    if any(xl >= 1.0e+20) || any(xu <= -1.0e+20) || any(xl > xu)
         error('S2MPJ:InvalidMetadata', 'Impossible variable bounds for S2MPJ problem %s.', problem_name);
     end
     % Replace 1.0e+20 (which represents infinity) bounds with Inf.
@@ -200,7 +202,7 @@ function problem = s2mpj_load(problem_name, varargin)
         cl = zeros(0, 1);
         cu = zeros(0, 1);
     end
-    if any(cl == Inf) || any(cu == -Inf)
+    if any(cl >= 1.0e+20) || any(cu <= -1.0e+20) || any(cl > cu)
         error('S2MPJ:InvalidMetadata', 'Impossible constraint bounds for S2MPJ problem %s.', problem_name);
     end
     cl(cl <= -1.0e+20) = -Inf;

@@ -52,8 +52,9 @@ is historical, not a usable continuous problem. The collector now admits only
 successfully validated continuous wrappers. No upstream problem formula was
 changed.
 
-Invalid native metadata fails closed. A wrong shape, NaN entry or impossible
-bound raises `S2MPJ:InvalidMetadata` instead of dropping the affected constraint.
+Invalid native metadata fails closed. A wrong shape, NaN entry, or impossible or
+crossed bound raises `S2MPJ:InvalidMetadata` (or `S2MPJ:SetupMetadata` when the
+setup output itself is unusable) instead of dropping the affected constraint.
 A linear constraint whose values or Jacobian cannot be read at `x0` raises
 `S2MPJ:LinearConstraintFailure` with the original cause. Problems without linear
 constraints need no Jacobian at load time. No upstream problem file is edited.

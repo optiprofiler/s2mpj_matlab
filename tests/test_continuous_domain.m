@@ -23,10 +23,12 @@ function test_continuous_domain()
     assert(isfinite(p.fun(p.x0)));
 
     data = load(fullfile(root, 'probinfo_matlab.mat'), 'probinfo');
+    % A regenerated table lists a rejected model as an error row, or not at all;
+    % if the plain name is present, it must carry the native domain.
     row = find(strcmp(data.probinfo(:,1), 'NOZZLEfp'));
-    assert(isscalar(row) && strcmp(data.probinfo{row,3}, 'rrrrb'));
+    assert(isempty(row) || strcmp(data.probinfo{row,3}, 'rrrrb'));
     csv = readtable(fullfile(root, 'probinfo_matlab.csv'), 'TextType', 'string');
-    assert(csv.xtype(csv.name == "NOZZLEfp") == "rrrrb");
+    assert(all(csv.xtype(csv.name == "NOZZLEfp") == "rrrrb"));
 
     % Exercise metadata filtering without modifying the installed provider.
     temporary = tempname;
@@ -52,7 +54,7 @@ function test_continuous_domain()
     original_folder = cd(temporary);
     cleanup_folder = onCleanup(@() cd(original_folder)); %#ok<NASGU>
     clear s2mpj_select
-    assert(startsWith(which('s2mpj_select'), temporary), 'The temporary selector is not in use.');
+    assert(startsWith(which('s2mpj_select'), pwd), 'The temporary selector is not in use.');
     for variable_size = {'default', 'min', 'max', 'all'}
         for feasibility = 0:2
             fid = fopen(fullfile(temporary, 'config.txt'), 'w');

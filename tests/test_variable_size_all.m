@@ -13,7 +13,7 @@ function test_variable_size_all()
     original_folder = cd(temporary);
     cleanup_folder = onCleanup(@() cd(original_folder)); %#ok<NASGU>
     clear s2mpj_select
-    assert(startsWith(which('s2mpj_select'), temporary), 'The temporary selector is not in use.');
+    assert(startsWith(which('s2mpj_select'), pwd), 'The temporary selector is not in use.');
     options = struct('ptype', 'n', 'mindim', 1, 'maxdim', 100, 'maxb', 400, ...
         'maxlcon', 400, 'maxnlcon', 400, 'maxcon', 400);
     default_names = selected(temporary, options, 'default');

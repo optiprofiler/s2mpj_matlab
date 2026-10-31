@@ -1,8 +1,8 @@
 # OptiProfiler 2.0 compatibility
 
 This line is the reviewed S2MPJ MATLAB adapter for OptiProfiler 2.0.0. Provider
-API version remains **1**. Upstream problem definitions and the automatic
-upstream-promotion policy are unchanged. Selection changes in three deliberate
+API version remains **1**. Upstream problem definitions and the manual review of
+upstream updates are unchanged. Selection changes in three deliberate
 ways: NOZZLEfp is corrected to its native `rrrrb` domain and no longer offered,
 `variable_size='all'` now includes the default instance, and the native models
 HS67 and ROSSIMP1NE, whose constraint bounds are invalid, are no longer offered.
