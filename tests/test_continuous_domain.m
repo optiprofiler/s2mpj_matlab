@@ -43,9 +43,16 @@ function test_continuous_domain()
         test_row{3} = types{1};
         probinfo(end+1,:) = test_row; %#ok<AGROW>
     end
+    test_row = base;
+    test_row{1} = 'DOMAIN_REAL';
+    probinfo(end+1,:) = test_row;
     save(fullfile(temporary, 'probinfo_matlab.mat'), 'probinfo');
-    addpath(temporary, '-begin');
+    % The current folder takes precedence over the path, and CI runs in the
+    % repository root, so a path entry alone would test the real selector.
+    original_folder = cd(temporary);
+    cleanup_folder = onCleanup(@() cd(original_folder)); %#ok<NASGU>
     clear s2mpj_select
+    assert(startsWith(which('s2mpj_select'), temporary), 'The temporary selector is not in use.');
     for variable_size = {'default', 'min', 'max', 'all'}
         for feasibility = 0:2
             fid = fopen(fullfile(temporary, 'config.txt'), 'w');
@@ -57,12 +64,13 @@ function test_continuous_domain()
                 names = s2mpj_select(struct('ptype', 'ubln', 'mindim', 1, ...
                     'maxdim', 10, 'oracle', oracle));
                 assert(~ismember('NOZZLEfp', names));
-                assert(~any(startsWith(names, 'DOMAIN_')));
+                assert(~any(startsWith(setdiff(names, {'DOMAIN_REAL'}), 'DOMAIN_')));
                 if feasibility ~= 1, assert(ismember('ROSENBR', names)); end
+                % Control: the same row with real-variable metadata is selected.
+                if feasibility ~= 1, assert(ismember('DOMAIN_REAL', names)); end
             end
         end
     end
-    rmpath(temporary);
     clear s2mpj_select
     disp('S2MPJ continuous variable domain: PASS');
 end
