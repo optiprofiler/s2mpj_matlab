@@ -31,7 +31,8 @@ jobs:
         with:
           repository: optiprofiler/optiprofiler
           path: optiprofiler
-          ref: main
+          # The exact 2.0.0 core this provider release was accepted with.
+          ref: ec130fb4e2fd7e59204bc4696d36b30eb2fa9da3
 
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v2
@@ -46,7 +47,7 @@ jobs:
       - name: Run adapter smoke and random tests
         uses: matlab-actions/run-command@v2
         with:
-          command: "run('tests/smoke_s2mpj_matlab.m'); clear cleanup_config; addpath('tests'); test_constraint_hessians; test_derivative_products; test_source_digest; test_state_ownership; test_state_paths; test_state_lifecycle('save',fullfile(getenv('RUNNER_TEMP'),'s2-state.mat'))"
+          command: "run('tests/smoke_s2mpj_matlab.m'); clear cleanup_config; addpath('tests'); test_continuous_domain; test_native_metadata; test_variable_size_all; test_v2_contract; test_constraint_hessians; test_derivative_products; test_source_digest; test_state_ownership; test_state_paths; test_state_lifecycle('save',fullfile(getenv('RUNNER_TEMP'),'s2-state.mat'))"
 
       - name: Restore saved Problems in a fresh MATLAB session
         uses: matlab-actions/run-command@v2
